@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공학용 계산기</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600&family=Noto+Sans+KR:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; min-height: 100vh;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #e9eeff 0%, #f6f2ff 100%);
+        font-family: "Noto Sans KR", sans-serif; color: #1f2440;
+        padding: 20px;
+    }
+    h1 { text-align: center; font-weight: 600; font-size: 20px; letter-spacing: 2px; margin: 0 0 14px; color: #4a5280; }
+
+    #calc {
+        width: 100%; max-width: 390px;
+        background: #ffffff; border-radius: 22px; padding: 18px;
+        border: 1px solid #e3e7f5;
+        box-shadow: 0 20px 50px rgba(80, 90, 150, .18);
+    }
+
+    /* ---------- 디스플레이 ---------- */
+    .screen {
+        background: #f3f5fc; border: 1px solid #dde3f3;
+        border-radius: 14px; padding: 10px 14px 12px; margin-bottom: 14px;
+    }
+    .screen-top { display: flex; justify-content: space-between; font-size: 11px; color: #8a93b8; margin-bottom: 4px; }
+    .mode-badge { background: #e1e6ff; color: #4656d6; padding: 1px 8px; border-radius: 10px; font-weight: 600; }
+
+    .disp {
+        position: relative;
+        font-family: "Oxanium", monospace; text-align: right;
+        white-space: nowrap; overflow-x: auto; overflow-y: hidden;
+        scrollbar-width: none;
+    }
+    .disp::-webkit-scrollbar { display: none; }
+    #disp1 { font-size: 26px; color: #1f2440; min-height: 64px; padding: 6px 2px; cursor: text; }
+    #disp2 { font-size: 32px; font-weight: 600; color: #1f2440; min-height: 42px; border-top: 1px dashed #d6dcef; padding-top: 4px; }
+    #disp2.preview { color: #8a93b8; font-size: 22px; font-weight: 400; }
+    #disp2.error { color: #e0465a; font-size: 20px; }
+    .eqsign { color: #8a93b8; }
+
+    /* ---------- 수식 모양 (분수, 첨자, 루트) ---------- */
+    .row { display: inline-block; vertical-align: middle; }
+    .frac {
+        display: inline-flex; flex-direction: column; align-items: center;
+        vertical-align: middle; margin: 0 3px; font-size: .92em;
+    }
+    .frac > .row { padding: 0 4px; line-height: 1.2; text-align: center; }
+    .frac > .row:first-child { border-bottom: 2px solid currentColor; padding-bottom: 2px; }
+    .frac > .row:last-child { padding-top: 2px; }
+
+    .sup { display: inline-block; font-size: .62em; vertical-align: .85em; margin-left: 1px; }
+    .sub { display: inline-block; font-size: .62em; vertical-align: -.45em; margin: 0 1px; }
+
+    .sqrt { display: inline-flex; align-items: flex-end; vertical-align: middle; }
+    .rad { font-size: 1.1em; line-height: 1; margin-right: -1px; }
+    .radicand { border-top: 2px solid currentColor; padding: 2px 3px 0; margin-top: 3px; }
+    .rootidx { font-size: .55em; align-self: flex-start; margin-right: -4px; }
+
+    .slot {
+        min-width: .7em; height: 1em; margin: 0 1px;
+        border: 1.5px dashed #a9b2d6; border-radius: 3px; vertical-align: middle;
+    }
+    .slot.active { border-color: #6c7cff; background: #e7eaff; }
+    .opch { margin: 0 3px; color: #5b3cc4; }
+    .fname { color: #3f4cc7; }
+    .ans { color: #b0388a; }
+
+    .cursor {
+        display: inline-block; width: 2px; height: 1em; background: #6c7cff;
+        vertical-align: middle; margin: 0 1px; animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ---------- 버튼 ---------- */
+    .keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    .key {
+        height: 46px; border: 1px solid transparent; border-radius: 12px; cursor: pointer;
+        font-family: "Oxanium", sans-serif; font-size: 16px;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform .06s, filter .15s;
+        box-shadow: 0 2px 0 rgba(60, 70, 130, .12);
+    }
+    .key:hover { filter: brightness(0.96); }
+    .key:active { transform: translateY(2px); box-shadow: none; }
+    .key sup { font-size: .65em; margin-left: 1px; }
+    .key sub { font-size: .65em; }
+
+    .num  { background: #ffffff; border-color: #e1e5f1; color: #1f2440; font-size: 20px; font-weight: 600; }
+    .fn   { background: #eef1fe; color: #3f4cc7; }
+    .op   { background: #e8e1fd; color: #5b3cc4; font-size: 20px; }
+    .nav  { background: #f1f2f6; color: #6a7090; }
+    .func { background: #ffe5ea; color: #d23c58; font-weight: 600; }
+    .eq   { background: linear-gradient(135deg, #6c7cff, #a66cff); color: #fff; font-size: 22px; }
+    .mode.rad { background: #fff3d6; color: #b07800; }
+
+    /* 분수 버튼 아이콘 */
+    .kfrac { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+    .kfrac i { display: block; width: 10px; height: 9px; border: 1.5px solid currentColor; border-radius: 2px; }
+    .kfrac b { display: block; width: 16px; height: 2px; background: currentColor; }
+    .kbox { display: inline-block; width: 7px; height: 8px; border: 1.2px solid currentColor; border-radius: 1px; }
+
+    /* ---------- 기록 ---------- */
+    .history { margin-top: 14px; border-top: 1px solid #e6e9f5; padding-top: 10px; }
+    .history-head { display: flex; justify-content: space-between; font-size: 12px; color: #8a93b8; margin-bottom: 6px; }
+    #clearHistory { cursor: pointer; }
+    #clearHistory:hover { color: #d23c58; }
+    #historyList { list-style: none; margin: 0; padding: 0; max-height: 150px; overflow-y: auto; }
+    #historyList li {
+        font-family: "Oxanium", monospace; font-size: 17px; text-align: right;
+        padding: 6px 8px; border-radius: 8px; cursor: pointer; color: #59607f;
+        white-space: nowrap; overflow-x: auto;
+    }
+    #historyList li:hover { background: #f1f3fb; }
+    #historyList li b { color: #1f2440; }
+    .hint { margin-top: 12px; font-size: 11px; color: #8a93b8; text-align: center; line-height: 1.6; }
+</style>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+    // ================== 상태 ==================
+    // 수식은 "줄(row)" 안에 글자와 구조(분수, 지수, 루트...)가 들어 있는 트리 구조
+    //   row  = { items: [...], up: { node, row } }   (up: 이 줄을 감싸는 구조와 그 바깥 줄)
+    //   node = { type: "frac", num: row, den: row } 등
+    const ROWKEYS = {
+        frac: ["num", "den"],     // 분수: 분자, 분모
+        sup:  ["body"],           // 지수(위첨자)
+        sqrt: ["body"],           // 제곱근
+        root: ["idx", "body"],    // n제곱근
+        logb: ["base", "arg"]     // 밑이 있는 로그 (아래첨자)
+    };
+
+    let root, cur;          // cur = { row, idx } : 커서 위치
+    let ans = 0;
+    let isDeg = true;
+    let justEvaluated = false;
+    let reg = [];           // 화면에 그린 row 목록 (클릭으로 커서 옮기기용)
+
+    function newRow(up){ return { items: [], up: up || null }; }
+    function newNode(type, parentRow){
+        const n = { type: type };
+        ROWKEYS[type].forEach(k => n[k] = newRow({ node: n, row: parentRow }));
+        return n;
+    }
+    function reset(){ root = newRow(null); cur = { row: root, idx: 0 }; }
+    function cloneRow(row, up){
+        const r = newRow(up);
+        row.items.forEach(it => {
+            if(typeof it == "string") r.items.push(it);
+            else {
+                const n = { type: it.type };
+                ROWKEYS[it.type].forEach(k => n[k] = cloneRow(it[k], { node: n, row: r }));
+                r.items.push(n);
+            }
+        });
+        return r;
+    }
+    const isEmptyNode = (n) => ROWKEYS[n.type].every(k => n[k].items.length == 0);
+
+    // ================== 입력 ==================
+    function startInput(kind){
+        if(justEvaluated){
+            reset();
+            if(kind == "op"){ root.items.push("Ans"); cur.idx = 1; }   // 결과에 이어서 계산
+            justEvaluated = false;
+        }
+    }
+    function insertText(t, kind){
+        startInput(kind);
+        cur.row.items.splice(cur.idx, 0, t);
+        cur.idx++;
+    }
+    function insertNode(type, opts){
+        opts = opts || {};
+        startInput(opts.kind || "num");
+        const n = newNode(type, cur.row);
+        const items = cur.row.items;
+
+        if(type == "frac"){
+            // 바로 앞에 입력한 숫자가 있으면 그 숫자를 분자로 가져가고 커서는 분모로
+            let s = cur.idx;
+            while(s > 0 && typeof items[s-1] == "string" && /^[0-9.]$/.test(items[s-1])) s--;
+            n.num.items = items.splice(s, cur.idx - s);
+            cur.idx = s;
+            items.splice(cur.idx, 0, n);
+            cur = { row: n.num.items.length ? n.den : n.num, idx: 0 };
+            return;
+        }
+        items.splice(cur.idx, 0, n);
+        if(opts.fill){                         // x² : 지수에 2를 채우고 커서는 바깥으로
+            n[ROWKEYS[type][0]].items.push(...opts.fill);
+            cur.idx++;
+            return;
+        }
+        cur = { row: n[ROWKEYS[type][0]], idx: 0 };
+    }
+
+    // ================== 커서 이동 ==================
+    function moveRight(){
+        const r = cur.row;
+        if(cur.idx < r.items.length){
+            const it = r.items[cur.idx];
+            if(typeof it == "string") cur.idx++;
+            else cur = { row: it[ROWKEYS[it.type][0]], idx: 0 };       // 구조 안으로 들어가기
+            return;
+        }
+        if(!r.up) return;
+        const node = r.up.node, keys = ROWKEYS[node.type];
+        const k = keys.findIndex(key => node[key] == r);
+        if(k < keys.length - 1) cur = { row: node[keys[k+1]], idx: 0 };  // 분자 → 분모
+        else cur = { row: r.up.row, idx: r.up.row.items.indexOf(node) + 1 }; // 구조 밖으로
+    }
+    function moveLeft(){
+        const r = cur.row;
+        if(cur.idx > 0){
+            const it = r.items[cur.idx - 1];
+            if(typeof it == "string") cur.idx--;
+            else { const last = it[ROWKEYS[it.type].slice(-1)[0]]; cur = { row: last, idx: last.items.length }; }
+            return;
+        }
+        if(!r.up) return;
+        const node = r.up.node, keys = ROWKEYS[node.type];
+        const k = keys.findIndex(key => node[key] == r);
+        if(k > 0){ const prev = node[keys[k-1]]; cur = { row: prev, idx: prev.items.length }; }
+        else cur = { row: r.up.row, idx: r.up.row.items.indexOf(node) };
+    }
+    function moveVertical(dir){        // 분수 안에서 위(분자)/아래(분모) 이동
+        let r = cur.row;
+        while(r.up){
+            const node = r.up.node;
+            if(node.type == "frac"){
+                const target = (dir == "down") ? node.den : node.num;
+                if(target != r){ cur = { row: target, idx: Math.min(cur.idx, target.items.length) }; return; }
+            }
+            r = r.up.row;
+        }
+    }
+    function backspace(){
+        const r = cur.row;
+        if(cur.idx > 0){
+            const it = r.items[cur.idx - 1];
+            if(typeof it == "string" || isEmptyNode(it)){ r.items.splice(cur.idx - 1, 1); cur.idx--; }
+            else moveLeft();                    // 내용이 있는 구조는 안으로 들어가서 지우기
+        }
+        else if(r.up){
+            const node = r.up.node, pr = r.up.row;
+            if(isEmptyNode(node)){
+                const i = pr.items.indexOf(node);
+                pr.items.splice(i, 1);
+                cur = { row: pr, idx: i };
+            }
+            else moveLeft();
+        }
+    }
+
+    // ================== 트리 → 계산용 문자열 ==================
+    function lin(row){
+        if(row.up && row.items.length == 0) throw "빈 칸을 채워 주세요";
+        let s = "";
+        row.items.forEach(it => {
+            if(typeof it == "string"){ s += it; return; }
+            switch(it.type){
+                case "frac": s += "((" + lin(it.num) + ")/(" + lin(it.den) + "))"; break;
+                case "sup":  s += "^(" + lin(it.body) + ")"; break;
+                case "sqrt": s += "√(" + lin(it.body) + ")"; break;
+                case "root": s += "((" + lin(it.body) + ")^(1/(" + lin(it.idx) + ")))"; break;
+                case "logb": s += "(ln(" + lin(it.arg) + ")/ln(" + lin(it.base) + "))"; break;
+            }
+        });
+        // 이 줄 안에서 안 닫힌 괄호는 자동으로 닫기
+        let open = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
+        return s + ")".repeat(Math.max(0, open));
+    }
+
+    // ================== 계산 엔진 (eval 사용 안 함) ==================
+    const FUNCS = ["asin","acos","atan","sinh","cosh","tanh","sin","cos","tan","log","ln","abs","Ans","e"];
+
+    function tokenize(s){
+        const tokens = [];
+        let i = 0;
+        while(i < s.length){
+            let c = s[i];
+            if(c == " "){ i++; continue; }
+            if(/[0-9.]/.test(c)){
+                let j = i;
+                while(j < s.length && /[0-9.]/.test(s[j])) j++;
+                let str = s.slice(i, j);
+                if((str.match(/\./g) || []).length > 1 || str == ".") throw "숫자 형식 오류";
+                tokens.push({ type: "num", value: parseFloat(str) });
+                i = j; continue;
+            }
+            if(/[a-zA-Z]/.test(c)){
+                let matched = FUNCS.find(f => s.startsWith(f, i));
+                if(!matched) throw "알 수 없는 이름";
+                if(matched == "e") tokens.push({ type: "num", value: Math.E });
+                else if(matched == "Ans") tokens.push({ type: "num", value: ans });
+                else tokens.push({ type: "func", value: matched });
+                i += matched.length; continue;
+            }
+            if(c == "π"){ tokens.push({ type: "num", value: Math.PI }); i++; continue; }
+            if(c == "√"){ tokens.push({ type: "func", value: "sqrt" }); i++; continue; }
+            const opMap = { "+":"+", "-":"-", "−":"-", "*":"*", "×":"*", "/":"/", "÷":"/", "^":"^", "!":"!", "%":"%", "(":"(", ")":")" };
+            if(opMap[c]){ tokens.push({ type: "op", value: opMap[c] }); i++; continue; }
+            throw "잘못된 문자";
+        }
+        return tokens;
+    }
+
+    // 재귀 하강 파서 (우선순위: 괄호/함수 > ! % > ^ > 단항 - > × ÷ > + −)
+    function evaluate(s){
+        const tokens = tokenize(s);
+        if(tokens.length == 0) throw "빈 수식";
+        let pos = 0;
+        const peek = () => tokens[pos];
+        const isOp = (v) => peek() && peek().type == "op" && peek().value == v;
+
+        function parseExpr(){
+            let v = parseTerm();
+            while(isOp("+") || isOp("-")){
+                let op = tokens[pos++].value;
+                let r = parseTerm();
+                v = (op == "+") ? v + r : v - r;
+            }
+            return v;
+        }
+        function parseTerm(){
+            let v = parseUnary();
+            while(true){
+                if(isOp("*") || isOp("/")){
+                    let op = tokens[pos++].value;
+                    let r = parseUnary();
+                    if(op == "/" && r == 0) throw "0으로 나눌 수 없음";
+                    v = (op == "*") ? v * r : v / r;
+                }
+                else if(peek() && (peek().type == "num" || peek().type == "func" || isOp("("))){
+                    v = v * parseUnary();          // 2π, 3(4), 2½ 같은 생략된 곱셈
+                }
+                else break;
+            }
+            return v;
+        }
+        function parseUnary(){
+            if(isOp("-")){ pos++; return -parseUnary(); }
+            if(isOp("+")){ pos++; return parseUnary(); }
+            return parsePower();
+        }
+        function parsePower(){
+            let base = parsePostfix();
+            if(isOp("^")){ pos++; return Math.pow(base, parseUnary()); }
+            return base;
+        }
+        function parsePostfix(){
+            let v = parsePrimary();
+            while(isOp("!") || isOp("%")){
+                let op = tokens[pos++].value;
+                v = (op == "!") ? factorial(v) : v / 100;
+            }
+            return v;
+        }
+        function parsePrimary(){
+            let t = peek();
+            if(!t) throw "수식이 끝나지 않음";
+            if(t.type == "num"){ pos++; return t.value; }
+            if(t.type == "func"){
+                pos++;
+                let arg = isOp("(") ? parsePrimary() : parseUnary();
+                return applyFunc(t.value, arg);
+            }
+            if(isOp("(")){
+                pos++;
+                let v = parseExpr();
+                if(!isOp(")")) throw "괄호 오류";
+                pos++;
+                return v;
+            }
+            throw "문법 오류";
+        }
+
+        let result = parseExpr();
+        if(pos < tokens.length) throw "문법 오류";
+        if(!isFinite(result) || isNaN(result)) throw "정의되지 않음";
+        return result;
+    }
+
+    function factorial(n){
+        if(n < 0 || !Number.isInteger(n)) throw "팩토리얼은 0 이상 정수만";
+        if(n > 170) throw "값이 너무 큼";
+        let r = 1;
+        for(let i = 2; i <= n; i++) r *= i;
+        return r;
+    }
+    function clean(x){ return Math.round(x * 1e12) / 1e12; }
+
+    function applyFunc(name, x){
+        const toRad = (a) => isDeg ? a * Math.PI / 180 : a;
+        const fromRad = (a) => isDeg ? a * 180 / Math.PI : a;
+        switch(name){
+            case "sin":  return clean(Math.sin(toRad(x)));
+            case "cos":  return clean(Math.cos(toRad(x)));
+            case "tan":
+                if(isDeg && Math.abs(x % 180) == 90) throw "tan 정의되지 않음";
+                return clean(Math.tan(toRad(x)));
+            case "asin": if(x < -1 || x > 1) throw "정의역 오류"; return fromRad(Math.asin(x));
+            case "acos": if(x < -1 || x > 1) throw "정의역 오류"; return fromRad(Math.acos(x));
+            case "atan": return fromRad(Math.atan(x));
+            case "sinh": return Math.sinh(x);
+            case "cosh": return Math.cosh(x);
+            case "tanh": return Math.tanh(x);
+            case "log":  if(x <= 0) throw "log 정의역 오류"; return Math.log10(x);
+            case "ln":   if(x <= 0) throw "ln 정의역 오류"; return Math.log(x);
+            case "sqrt": if(x < 0) throw "음수의 제곱근"; return Math.sqrt(x);
+            case "abs":  return Math.abs(x);
+        }
+        throw "알 수 없는 함수";
+    }
+
+    function format(n){
+        if(Number.isInteger(n) && Math.abs(n) < 1e15) return String(n);
+        let r = parseFloat(n.toPrecision(12));
+        if(Math.abs(r) >= 1e15 || (r != 0 && Math.abs(r) < 1e-7)){
+            return r.toExponential(8).replace(/\.?0+e/, "e");
+        }
+        return String(r);
+    }
+
+    // ================== 화면 그리기 ==================
+    const CURSOR = '<span class="cursor"></span>';
+    function esc(s){ return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+    function textHTML(t){
+        if(t == "Ans") return '<span class="ans">Ans</span>';
+        if(/^[+−×÷]$/.test(t)) return '<span class="opch">' + t + '</span>';
+        if(/^[a-z]+\($/.test(t) || t == "√(") return '<span class="fname">' + esc(t.slice(0, -1)) + '</span>(';
+        return esc(t);
+    }
+    function nodeHTML(n, wc){
+        switch(n.type){
+            case "frac": return '<span class="frac">' + renderRow(n.num, wc) + renderRow(n.den, wc) + '</span>';
+            case "sup":  return '<span class="sup">' + renderRow(n.body, wc) + '</span>';
+            case "sqrt": return '<span class="sqrt"><span class="rad">√</span><span class="radicand">' + renderRow(n.body, wc) + '</span></span>';
+            case "root": return '<span class="sqrt"><span class="rootidx">' + renderRow(n.idx, wc) + '</span><span class="rad">√</span><span class="radicand">' + renderRow(n.body, wc) + '</span></span>';
+            case "logb": return '<span class="fname">log</span><span class="sub">' + renderRow(n.base, wc) + '</span>(' + renderRow(n.arg, wc) + ')';
+        }
+    }
+    function renderRow(row, wc){
+        const id = reg.push(row) - 1;
+        const here = wc && cur.row == row;
+        if(row.items.length == 0){
+            const cls = row.up ? ' slot' + (here ? ' active' : '') : '';
+            return '<span class="row' + cls + '" data-r="' + id + '">' + (here ? CURSOR : '') + '</span>';
+        }
+        let h = "";
+        row.items.forEach((it, i) => {
+            if(here && cur.idx == i) h += CURSOR;
+            h += (typeof it == "string") ? textHTML(it) : nodeHTML(it, wc);
+        });
+        if(here && cur.idx == row.items.length) h += CURSOR;
+        return '<span class="row" data-r="' + id + '">' + h + '</span>';
+    }
+
+    function render(){
+        reg = [];
+        const d = $("#disp1");
+        d.html(renderRow(root, true));
+        // 커서가 보이도록 스크롤
+        const c = d.find(".cursor")[0];
+        if(c){
+            const left = c.getBoundingClientRect().left - d[0].getBoundingClientRect().left + d[0].scrollLeft;
+            d[0].scrollLeft = left - d[0].clientWidth * 0.7;
+        }
+        // 결과 미리보기
+        $("#disp2").removeClass("error").addClass("preview");
+        try {
+            if(root.items.length == 0) throw "";
+            $("#disp2").text("= " + format(evaluate(lin(root))));
+        } catch(e) {
+            $("#disp2").text("");
+        }
+    }
+
+    function calculate(){
+        if(root.items.length == 0) return;
+        try {
+            const result = evaluate(lin(root));
+            ans = result;
+            const shown = format(result);
+            reg = [];
+            const html = renderRow(root, false);
+            $("#disp1").html(html + '<span class="eqsign"> =</span>');
+            $("#disp1")[0].scrollLeft = $("#disp1")[0].scrollWidth;
+            $("#disp2").removeClass("preview error").text(shown);
+            addHistory(cloneRow(root, null), html, shown);
+            justEvaluated = true;
+        } catch(e) {
+            $("#disp2").removeClass("preview").addClass("error").text("Error: " + e);
+        }
+    }
+
+    function clearAll(){
+        reset();
+        justEvaluated = false;
+        render();
+        $("#disp2").removeClass("preview error").text("0");
+    }
+
+    function addHistory(tree, html, shown){
+        const li = $("<li>").html(html + ' = <b>' + shown + '</b>').data("tree", tree);
+        $("#historyList").prepend(li);
+        if($("#historyList li").length > 20) $("#historyList li").last().remove();
+    }
+
+    // ================== 버튼 동작 ==================
+    function handle(a, v){
+        if(a == "eq"){ calculate(); return; }
+        if(a == "ac"){ clearAll(); return; }
+        if(a == "mode"){
+            isDeg = !isDeg;
+            $(".mode").text(isDeg ? "DEG" : "RAD").toggleClass("rad", !isDeg);
+            $("#modeBadge").text(isDeg ? "DEG" : "RAD");
+            if(!justEvaluated) render();
+            return;
+        }
+        // 편집 키는 계산 결과 화면에서 다시 수식 편집으로 돌아감
+        if(["del","left","right","up","down"].includes(a) && justEvaluated){
+            justEvaluated = false;
+            cur = { row: root, idx: root.items.length };
+        }
+        switch(a){
+            case "num":    insertText(v, "num"); break;
+            case "fn":     insertText(v, "num"); break;
+            case "op":     insertText(v, "op"); break;
+            case "frac":   insertNode("frac"); break;
+            case "sqrt":   insertNode("sqrt"); break;
+            case "root":   insertNode("root"); break;
+            case "logb":   insertNode("logb"); break;
+            case "sq":     insertNode("sup", { kind: "op", fill: ["2"] }); break;
+            case "pow":    insertNode("sup", { kind: "op" }); break;
+            case "epow":   insertText("e", "num"); insertNode("sup"); break;
+            case "tenpow": insertText("1", "num"); insertText("0", "num"); insertNode("sup"); break;
+            case "del":    backspace(); break;
+            case "left":   moveLeft(); break;
+            case "right":  moveRight(); break;
+            case "up":     moveVertical("up"); break;
+            case "down":   moveVertical("down"); break;
+        }
+        render();
+    }
+
+    $(document).ready(function(){
+        clearAll();
+
+        $(".key").on("mousedown", e => e.preventDefault());   // 버튼에 포커스가 안 가게
+        $(".key").click(function(){ handle($(this).attr("data-a"), $(this).attr("data-v")); /* attr: 숫자도 문자열 그대로 받기 */ });
+
+        // 화면을 클릭하면 그 칸으로 커서 이동
+        $("#disp1").on("click", ".row", function(e){
+            e.stopPropagation();
+            const r = reg[$(this).data("r")];
+            if(!r) return;
+            if(justEvaluated){ justEvaluated = false; }
+            cur = { row: r, idx: r.items.length };
+            render();
+        });
+
+        $("#historyList").on("click", "li", function(){
+            root = cloneRow($(this).data("tree"), null);
+            cur = { row: root, idx: root.items.length };
+            justEvaluated = false;
+            render();
+        });
+        $("#clearHistory").click(() => $("#historyList").empty());
+
+        // 키보드
+        $(document).keydown(function(e){
+            const k = e.key;
+            const map = {
+                "+": ["op","+"], "-": ["op","−"], "*": ["op","×"], "!": ["op","!"], "%": ["op","%"],
+                "/": ["frac"], "^": ["pow"], "(": ["fn","("], ")": ["op",")"],
+                "Enter": ["eq"], "=": ["eq"], "Backspace": ["del"], "Escape": ["ac"],
+                "ArrowLeft": ["left"], "ArrowRight": ["right"], "ArrowUp": ["up"], "ArrowDown": ["down"]
+            };
+            if(/^[0-9.]$/.test(k)){ handle("num", k); }
+            else if(map[k]){ e.preventDefault(); handle(map[k][0], map[k][1]); }
+        });
+    });
+</script>
+<body>
+    <h1>공학용 계산기</h1>
+    <div id="calc">
+        <div class="screen">
+            <div class="screen-top"><span>SCIENTIFIC · NATURAL DISPLAY</span><span class="mode-badge" id="modeBadge">DEG</span></div>
+            <div class="disp" id="disp1"></div>
+            <div class="disp" id="disp2">0</div>
+        </div>
+
+        <div class="keys">
+            <button class="key fn mode" data-a="mode">DEG</button>
+            <button class="key fn" data-a="fn" data-v="sin(">sin</button>
+            <button class="key fn" data-a="fn" data-v="cos(">cos</button>
+            <button class="key fn" data-a="fn" data-v="tan(">tan</button>
+            <button class="key fn" data-a="fn" data-v="π">π</button>
+
+            <button class="key fn" data-a="fn" data-v="asin(">sin<sup>-1</sup></button>
+            <button class="key fn" data-a="fn" data-v="acos(">cos<sup>-1</sup></button>
+            <button class="key fn" data-a="fn" data-v="atan(">tan<sup>-1</sup></button>
+            <button class="key fn" data-a="fn" data-v="e">e</button>
+            <button class="key fn" data-a="fn" data-v="abs(">|x|</button>
+
+            <button class="key fn" data-a="frac" title="분수"><span class="kfrac"><i></i><b></b><i></i></span></button>
+            <button class="key fn" data-a="sq">x<sup>2</sup></button>
+            <button class="key fn" data-a="pow">x<sup><span class="kbox"></span></sup></button>
+            <button class="key fn" data-a="sqrt">√<span class="kbox"></span></button>
+            <button class="key fn" data-a="root"><sup><span class="kbox"></span></sup>√<span class="kbox"></span></button>
+
+            <button class="key fn" data-a="fn" data-v="log(">log</button>
+            <button class="key fn" data-a="fn" data-v="ln(">ln</button>
+            <button class="key fn" data-a="logb">log<sub><span class="kbox"></span></sub></button>
+            <button class="key fn" data-a="epow">e<sup>x</sup></button>
+            <button class="key fn" data-a="tenpow">10<sup>x</sup></button>
+
+            <button class="key nav" data-a="left">◀</button>
+            <button class="key nav" data-a="right">▶</button>
+            <button class="key fn" data-a="fn" data-v="(">(</button>
+            <button class="key fn" data-a="op" data-v=")">)</button>
+            <button class="key fn" data-a="op" data-v="!">n!</button>
+
+            <button class="key num" data-a="num" data-v="7">7</button>
+            <button class="key num" data-a="num" data-v="8">8</button>
+            <button class="key num" data-a="num" data-v="9">9</button>
+            <button class="key func" data-a="del">⌫</button>
+            <button class="key func" data-a="ac">AC</button>
+
+            <button class="key num" data-a="num" data-v="4">4</button>
+            <button class="key num" data-a="num" data-v="5">5</button>
+            <button class="key num" data-a="num" data-v="6">6</button>
+            <button class="key op" data-a="op" data-v="×">×</button>
+            <button class="key op" data-a="op" data-v="÷">÷</button>
+
+            <button class="key num" data-a="num" data-v="1">1</button>
+            <button class="key num" data-a="num" data-v="2">2</button>
+            <button class="key num" data-a="num" data-v="3">3</button>
+            <button class="key op" data-a="op" data-v="+">+</button>
+            <button class="key op" data-a="op" data-v="−">−</button>
+
+            <button class="key num" data-a="num" data-v="0">0</button>
+            <button class="key num" data-a="num" data-v=".">.</button>
+            <button class="key op" data-a="op" data-v="%">%</button>
+            <button class="key fn" data-a="fn" data-v="Ans">Ans</button>
+            <button class="key eq" data-a="eq">=</button>
+        </div>
+
+        <div class="history">
+            <div class="history-head"><span>기록 (클릭하면 다시 불러오기)</span><span id="clearHistory">지우기</span></div>
+            <ul id="historyList"></ul>
+        </div>
+        <div class="hint">
+            숫자 입력 후 분수 버튼(또는 /) → 그 숫자가 분자가 됨 · ▶ / ↓ 로 분모로 이동<br>
+            ^ = 지수 · ← → ↑ ↓ 칸 이동 · 화면의 빈 칸을 클릭해도 이동 · Enter = 계산 · Esc = AC
+        </div>
+    </div>
+</body>
+</html>

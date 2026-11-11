@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    h1 {text-align:center;}
+    .disp { width : 205px; height:40px; margin-top:3px;}
+    .disp {text-align: right; font-family:"oxanium" sans-serif; font-size: 22pt;}
+
+    input[type=button] {width: 50px; height: 50px; margin-top: 5px;
+           text-align: center; vertical-align: middle; }
+    #calc {width: 220px; margin-left: auto; margin-right: auto;}      
+</style>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+    // eval 없이 수식 문자열을 계산하는 함수
+    function calculate(expr){
+        let nums = [];   // 숫자 저장
+        let ops = [];    // 연산자 저장
+        let numStr = "";
+
+        // 1. 수식을 숫자와 연산자로 나누기
+        for(let i = 0; i < expr.length; i++){
+            let c = expr[i];
+            if(c == "+" || c == "-" || c == "*" || c == "/"){
+                nums.push(Number(numStr));
+                ops.push(c);
+                numStr = "";
+            }
+            else{
+                numStr += c;
+            }
+        }
+        nums.push(Number(numStr));
+
+        // 2. *, / 먼저 계산
+        let nums2 = [nums[0]];
+        let ops2 = [];
+        for(let i = 0; i < ops.length; i++){
+            if(ops[i] == "*"){
+                nums2[nums2.length - 1] = nums2[nums2.length - 1] * nums[i + 1];
+            }
+            else if(ops[i] == "/"){
+                nums2[nums2.length - 1] = nums2[nums2.length - 1] / nums[i + 1];
+            }
+            else{
+                ops2.push(ops[i]);
+                nums2.push(nums[i + 1]);
+            }
+        }
+
+        // 3. +, - 계산
+        let result = nums2[0];
+        for(let i = 0; i < ops2.length; i++){
+            if(ops2[i] == "+"){
+                result = result + nums2[i + 1];
+            }
+            else{
+                result = result - nums2[i + 1];
+            }
+        }
+        return result;
+    }
+
+    $(document).ready(function(){
+        $(".num").click(function(){
+            let cur = $("#disp2").val();
+            let n = $(this).val();
+            $("#disp2").val(cur+n);
+
+        });
+        $(".op").click(function(){
+            let cur = $("#disp2").val();
+            let n = $(this).val();
+            if(n != "="){
+                $("#disp2").val(cur+n);
+            }
+            else{
+                if(cur == "") return;              // 입력이 없으면 무시
+                let result = calculate(cur);
+                $("#disp1").val(cur + "=");        // 위 칸에 수식 표시
+                $("#disp2").val(result);           // 아래 칸에 결과 표시
+            }
+        });
+        $(".func").click(function(){
+            // AC: 초기화
+            $("#disp1").val("");
+            $("#disp2").val("");
+        });
+    });
+</script>
+<body>
+    <h1>계산기</h1>
+    <div id="calc">
+        <div>
+            <input type="text" class="disp" id="disp1" readonly>
+            <input type="text" class="disp" id="disp2" readonly>
+        </div>
+        <input type="button" class="num" value="7">
+        <input type="button" class="num" value="8">
+        <input type="button" class="num" value="9">
+        <input type="button" class="op" value="+"> <br>
+        <input type="button" class="num" value="4">
+        <input type="button" class="num" value="5">
+        <input type="button" class="num" value="6">
+        <input type="button" class="op" value="-"> <br>
+        <input type="button" class="num" value="1">
+        <input type="button" class="num" value="2">
+        <input type="button" class="num" value="3">
+        <input type="button" class="op" value="*"> <br>
+        <input type="button" class="func" value="ac">
+        <input type="button" class="num" value="0">
+        <input type="button" class="op" value="=">
+        <input type="button" class="op" value="/"> <br>
+
+    </div>
+</body>
+</html>
+
