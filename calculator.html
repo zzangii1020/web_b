@@ -8,7 +8,7 @@
 <style>
     h1 {text-align:center;}
     .disp { width : 205px; height:40px; margin-top:3px;}
-    .disp {text-align: right; font-family:"oxanium" sans-serif; font-size: 22pt;}
+    .disp {text-align: right; font-family:"oxanium", sans-serif; font-size: 22pt;}
 
     input[type=button] {width: 50px; height: 50px; margin-top: 5px;
            text-align: center; vertical-align: middle; }
@@ -16,6 +16,9 @@
 </style>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
+    const OPS = ["+", "-", "*", "/"];
+    function isOp(c){ return OPS.indexOf(c) != -1; }
+
     // eval 없이 수식 문자열을 계산하는 함수
     function calculate(expr){
         let nums = [];   // 숫자 저장
@@ -25,7 +28,11 @@
         // 1. 수식을 숫자와 연산자로 나누기
         for(let i = 0; i < expr.length; i++){
             let c = expr[i];
-            if(c == "+" || c == "-" || c == "*" || c == "/"){
+            // 맨 앞의 '-' 또는 연산자 바로 뒤의 '-'는 음수 부호로 처리
+            if(c == "-" && numStr == "" && (i == 0 || isOp(expr[i - 1]))){
+                numStr += c;
+            }
+            else if(isOp(c)){
                 nums.push(Number(numStr));
                 ops.push(c);
                 numStr = "";
@@ -44,6 +51,7 @@
                 nums2[nums2.length - 1] = nums2[nums2.length - 1] * nums[i + 1];
             }
             else if(ops[i] == "/"){
+                if(nums[i + 1] == 0) return NaN;   // 0으로 나누기
                 nums2[nums2.length - 1] = nums2[nums2.length - 1] / nums[i + 1];
             }
             else{
@@ -62,33 +70,72 @@
                 result = result - nums2[i + 1];
             }
         }
-        return result;
+        // 부동소수점 오차 제거 (예: 0.30000000000000004 -> 0.3)
+        return Number(result.toPrecision(12));
     }
 
     $(document).ready(function(){
+        let justCalculated = false;   // 방금 '=' 을 눌렀는지
+
         $(".num").click(function(){
             let cur = $("#disp2").val();
             let n = $(this).val();
+            // 결과가 나온 뒤 숫자를 누르면 새 계산 시작
+            if(justCalculated || cur == "오류"){
+                cur = "";
+                $("#disp1").val("");
+            }
+            justCalculated = false;
             $("#disp2").val(cur+n);
-
         });
         $(".op").click(function(){
             let cur = $("#disp2").val();
             let n = $(this).val();
+            if(cur == "오류") cur = "";
             if(n != "="){
+                justCalculated = false;
+                let last = cur.slice(-1);
+                if(cur == ""){
+                    if(n == "-") $("#disp2").val("-");   // 음수 시작만 허용
+                    return;
+                }
+                if(isOp(last)){
+                    // 연산자 뒤 '-'는 음수 부호로 허용 (예: 5*-3)
+                    if(n == "-" && last != "-" && cur.length > 1){
+                        $("#disp2").val(cur + n);
+                    }
+                    else{
+                        // 연산자 연속 입력 시 마지막 연산자 교체
+                        let base = cur;
+                        while(base.length > 0 && isOp(base.slice(-1))) base = base.slice(0, -1);
+                        if(base == "") return;
+                        $("#disp2").val(base + n);
+                    }
+                    return;
+                }
                 $("#disp2").val(cur+n);
             }
             else{
+                // 끝에 남은 연산자는 제거
+                while(cur.length > 0 && isOp(cur.slice(-1))) cur = cur.slice(0, -1);
                 if(cur == "") return;              // 입력이 없으면 무시
                 let result = calculate(cur);
                 $("#disp1").val(cur + "=");        // 위 칸에 수식 표시
-                $("#disp2").val(result);           // 아래 칸에 결과 표시
+                if(!isFinite(result)){
+                    $("#disp2").val("오류");
+                }
+                else{
+                    // 지수 표기(1e+21)는 다시 계산할 수 없으므로 일반 숫자로 표시
+                    $("#disp2").val(result.toLocaleString("en-US", {useGrouping: false, maximumFractionDigits: 10}));
+                }
+                justCalculated = true;
             }
         });
         $(".func").click(function(){
             // AC: 초기화
             $("#disp1").val("");
             $("#disp2").val("");
+            justCalculated = false;
         });
     });
 </script>
