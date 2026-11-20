@@ -1,1 +1,11 @@
-{}
+
+{
+  "name": "proj01",
+  "version": "1.0.0",
+  "description": "Node.js HTTP Server",
+  "main": "ex02.js",
+  "scripts": {
+    "start": "node ex02.js"
+  },
+  "license": "ISC"
+}
